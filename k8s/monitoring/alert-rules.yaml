@@ -1,0 +1,75 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: postmortem-ai-alerts
+  namespace: monitoring
+  labels:
+    # Must match the ruleSelector in kube-prometheus-stack's Prometheus CR
+    release: kube-prometheus-stack
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: postmortem-ai.demo-app
+      interval: 15s
+      rules:
+
+        # ── Alert 1: High CPU Usage ─────────────────────────────────────
+        - alert: HighCpuUsage
+          expr: |
+            (
+              sum by (pod, namespace, container) (
+                rate(container_cpu_usage_seconds_total{
+                  container="demo-broken-app",
+                  namespace="default"
+                }[2m])
+              )
+            ) > 0.3
+          for: 1m
+          labels:
+            severity: warning
+            team: platform
+            service: demo-broken-app
+          annotations:
+            summary: "High CPU usage on pod {{ $labels.pod }}"
+            description: >
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }}
+              has CPU usage of {{ $value | humanizePercentage }} for over 1 minute.
+              This may indicate a CPU-intensive operation or runaway process.
+            runbook_url: "https://wiki.internal/runbooks/high-cpu"
+
+        # ── Alert 2: Pod Crash Loop ─────────────────────────────────────
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{
+              container="demo-broken-app",
+              namespace="default"
+            }[10m]) > 2
+          for: 0m
+          labels:
+            severity: critical
+            team: platform
+            service: demo-broken-app
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash-looping"
+            description: >
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }}
+              has restarted {{ $value }} times in the last 10 minutes.
+            runbook_url: "https://wiki.internal/runbooks/crash-loop"
+
+        # ── Alert 3: Pod Not Ready ──────────────────────────────────────
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{
+              condition="true",
+              namespace="default"
+            } == 0
+          for: 2m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Pod {{ $labels.pod }} is not ready"
+            description: >
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }}
+              has been in a non-ready state for more than 2 minutes.

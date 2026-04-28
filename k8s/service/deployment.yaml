@@ -1,0 +1,105 @@
+---
+# Secret holding the Anthropic API key
+# Create with: kubectl create secret generic postmortem-ai-secrets \
+#   --from-literal=ANTHROPIC_API_KEY=sk-ant-xxxxx
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postmortem-ai-secrets
+  namespace: default
+type: Opaque
+# Base64 encode your key: echo -n "sk-ant-xxx" | base64
+# stringData is plaintext (kubectl handles encoding)
+stringData:
+  ANTHROPIC_API_KEY: "REPLACE_ME"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postmortem-ai
+  namespace: default
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postmortem-ai-service
+  namespace: default
+  labels:
+    app: postmortem-ai-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postmortem-ai-service
+  template:
+    metadata:
+      labels:
+        app: postmortem-ai-service
+    spec:
+      serviceAccountName: postmortem-ai
+      containers:
+        - name: postmortem-ai
+          image: postmortem-ai-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: postmortem-ai-secrets
+                  key: ANTHROPIC_API_KEY
+            - name: PROMETHEUS_URL
+              value: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+            - name: LOKI_URL
+              value: "http://loki.monitoring.svc.cluster.local:3100"
+            - name: CLAUDE_MODEL
+              value: "claude-sonnet-4-20250514"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: REPORTS_DIR
+              value: "/reports"
+          volumeMounts:
+            - name: reports
+              mountPath: /reports
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: reports
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postmortem-ai-service
+  namespace: default
+  labels:
+    app: postmortem-ai-service
+spec:
+  selector:
+    app: postmortem-ai-service
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP

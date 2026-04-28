@@ -1,0 +1,9 @@
+{
+  "name": "demo-broken-app",
+  "version": "1.0.0",
+  "description": "Intentionally broken app for PostmortemAI demo",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  }
+}
