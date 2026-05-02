@@ -1,6 +1,6 @@
 # 🤖 PostmortemAI — Autonomous SRE Platform
 
-> An end-to-end autonomous SRE platform built across five phases. Detects incidents via Prometheus alerts, injects automated chaos experiments to test resilience, tracks real-time cost metrics via OpenCost, and leverages AI (Claude / NVIDIA API) to provide actionable, structured postmortem reports and FinOps recommendations. Transformed into a fully multi-tenant SaaS architecture with cluster onboarding and secure agent communication.
+> An end-to-end autonomous SRE platform built across six phases. Detects incidents via Prometheus alerts, injects automated chaos experiments to test resilience, tracks real-time cost metrics via OpenCost, and leverages AI (Claude / NVIDIA API) to provide actionable, structured postmortem reports and FinOps recommendations. Transformed into a fully multi-tenant SaaS architecture with cluster onboarding, secure agent communication, and production-ready cloud deployments.
 
 ---
 
@@ -134,9 +134,21 @@ Transforming the standalone platform into a multi-tenant SaaS product.
 
 ---
 
+## 🚀 Phase 6: Production SaaS Deployment
+
+Transitioning the platform from local development to a publicly accessible, secure SaaS product.
+
+- **PostgreSQL Migration**: Upgraded the backend from local SQLite to PostgreSQL via SQLAlchemy, ensuring reliable multi-tenant data persistence.
+- **API Security Hardening**: Implemented IP-based API rate limiting (`slowapi`) and strict CORS configurations to protect the backend service from abuse.
+- **Cloud Deployments**: 
+  - **Frontend (Vercel)**: Converted the React dashboard to a standard folder and configured environment variables for seamless edge deployment.
+  - **Backend (Render)**: Configured the FastAPI service to run in the cloud, connecting securely to a managed PostgreSQL instance.
+
+---
+
 ## 💻 The Dashboard
 
-Access the React dashboard at `http://localhost:5173`.
+Access the React dashboard at `http://localhost:5173` (or the deployed Vercel URL).
 It features:
 - **Authentication**: Secure login/signup via Clerk.
 - **Cluster Connection**: UI to generate API keys for the SRE agent.
