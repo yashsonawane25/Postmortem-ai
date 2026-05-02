@@ -28,15 +28,19 @@ check_tool kind
 check_tool kubectl
 check_tool helm
 check_tool docker
+check_tool npm
+check_tool node
 ok "All prerequisites found."
 
 # ── API key check ─────────────────────────────────────────────────────────────
 if [[ -z "$ANTHROPIC_API_KEY" ]]; then
-  echo -e "${YELLOW}Enter your Anthropic API key (starts with sk-ant-):${NC}"
+  echo -e "${YELLOW}Enter your ANTHROPIC API key:${NC}"
   read -r -s ANTHROPIC_API_KEY
   echo
 fi
-[[ "$ANTHROPIC_API_KEY" == sk-ant-* ]] || warn "API key doesn't look like an Anthropic key."
+if [[ -z "$ANTHROPIC_API_KEY" ]]; then
+  error "ANTHROPIC API key is required."
+fi
 
 # ── Step 1: Create kind cluster ───────────────────────────────────────────────
 info "Step 1: Creating kind cluster '$CLUSTER_NAME'..."
@@ -111,6 +115,23 @@ info "Step 4: Applying Prometheus alert rules..."
 kubectl apply -f "$ROOT_DIR/k8s/monitoring/alert-rules.yaml"
 ok "Alert rules applied."
 
+# ── Step 4b: Install OpenCost ────────────────────────────────────────────────
+info "Step 4b: Installing OpenCost..."
+
+helm repo add opencost https://opencost.github.io/opencost-helm-chart
+helm repo update
+
+kubectl create namespace opencost --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install opencost opencost/opencost \
+  --namespace opencost \
+  --set opencost.exporter.defaultClusterId="$CLUSTER_NAME" \
+  --set opencost.prometheus.internal.serviceName="kube-prometheus-stack-prometheus.monitoring.svc.cluster.local" \
+  --set opencost.prometheus.internal.port="9090" \
+  --wait --timeout=300s
+
+ok "OpenCost installed."
+
 # ── Step 5: Build and load demo app image ────────────────────────────────────
 info "Step 5: Building demo-broken-app Docker image..."
 docker build -t demo-broken-app:latest "$ROOT_DIR/app/"
@@ -139,8 +160,22 @@ kubectl create secret generic postmortem-ai-secrets \
 
 # Apply the deployment (but replace the placeholder secret block)
 kubectl apply -f "$ROOT_DIR/k8s/service/deployment.yaml"
-kubectl rollout status deployment/postmortem-ai-service --timeout=60s
-ok "PostmortemAI service deployed."
+
+info "Step 9: Waiting for all deployments to be available..."
+kubectl wait --for=condition=available deployment --all --timeout=120s -A || warn "Some deployments took too long, but continuing..."
+ok "All deployments are ready."
+
+info "Step 10: Port-forwarding and starting frontend..."
+kubectl port-forward svc/postmortem-ai-service 8000:8000 > /dev/null 2>&1 &
+echo "[OK] Port-forwarded backend to 8000."
+
+cd "$ROOT_DIR/frontend"
+info "Installing frontend dependencies..."
+npm install
+info "Starting frontend dashboard..."
+npm run dev &
+FRONTEND_PID=$!
+ok "Frontend started locally."
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -149,7 +184,7 @@ echo -e "${GREEN}║           PostmortemAI Setup Complete! 🎉                
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo "  Next steps:"
-echo "  1. Trigger an incident:    ./scripts/trigger-incident.sh"
-echo "  2. Watch AI analysis:      kubectl logs -f deploy/postmortem-ai-service"
-echo "  3. Port-forward service:   kubectl port-forward svc/postmortem-ai-service 8000:8000"
+echo "  1. Dashboard is running at: http://localhost:5173"
+echo "  2. Trigger an incident:    ./scripts/trigger-incident.sh or ./chaos/random-pod-kill.sh"
+echo "  3. Watch AI analysis:      kubectl logs -f deploy/postmortem-ai-service"
 echo ""

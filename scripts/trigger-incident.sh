@@ -2,7 +2,7 @@
 # =============================================================================
 # PostmortemAI — Trigger an Incident for Demo
 # Causes CPU spike → Prometheus alert fires → Alertmanager calls webhook →
-# PostmortemAI collects data → Claude analyzes → Report saved
+# PostmortemAI collects data → NVIDIA AI analyzes → Report saved
 # =============================================================================
 set -euo pipefail
 

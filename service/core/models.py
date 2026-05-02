@@ -106,7 +106,7 @@ class Severity(str, Enum):
 
 
 class IncidentAnalysis(BaseModel):
-    """Structured output from Claude's analysis."""
+    """Structured output from the AI analysis."""
     incident_id: str
     alert_name: str
     pod: str
@@ -118,6 +118,11 @@ class IncidentAnalysis(BaseModel):
     recommended_fix: str
     kubernetes_fix_yaml: str
     timeline: str
+    weakness_explanation: str = ""
+    resilience_improvement: str = ""
+    monitoring_improvement: str = ""
+    cost_insight: str = ""
+    savings_recommendation: str = ""
     analyzed_at: datetime = Field(default_factory=datetime.utcnow)
     raw_response: str = ""
 

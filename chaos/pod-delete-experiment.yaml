@@ -1,0 +1,87 @@
+---
+# ServiceAccount for the Chaos Experiment
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-delete-sa
+  namespace: default
+  labels:
+    name: pod-delete-sa
+    app.kubernetes.io/part-of: litmus
+---
+# Role for the Chaos Experiment
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-delete-sa
+  namespace: default
+  labels:
+    name: pod-delete-sa
+    app.kubernetes.io/part-of: litmus
+rules:
+  - apiGroups: ["", "apps", "litmuschaos.io"]
+    resources: ["pods", "deployments", "pods/log", "events", "chaosengines", "chaosexperiments", "chaosresults"]
+    verbs: ["create", "list", "get", "patch", "update", "delete", "deletecollection"]
+---
+# RoleBinding for the Chaos Experiment
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-delete-sa
+  namespace: default
+  labels:
+    name: pod-delete-sa
+    app.kubernetes.io/part-of: litmus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-delete-sa
+subjects:
+  - kind: ServiceAccount
+    name: pod-delete-sa
+    namespace: default
+---
+# ChaosExperiment definition for pod-delete (Generic Litmus Experiment)
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: generic-pod-delete
+  namespace: default
+  labels:
+    name: generic-pod-delete
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups: ["", "apps", "batch", "litmuschaos.io"]
+        resources: ["pods", "jobs", "pods/exec", "pods/log", "events", "chaosengines", "chaosexperiments", "chaosresults"]
+        verbs: ["create", "list", "get", "patch", "update", "delete", "deletecollection"]
+    image: "litmuschaos/go-runner:latest"
+    args: ["-c", "sleep 10 && kubectl delete pod -l app=demo-broken-app -n default --wait=false"]
+    command: ["/bin/bash"]
+---
+# ChaosEngine to trigger the experiment
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: demo-app-pod-delete
+  namespace: default
+spec:
+  engineState: "active"
+  appinfo:
+    appns: "default"
+    applabel: "app=demo-broken-app"
+    appkind: "deployment"
+  chaosServiceAccount: pod-delete-sa
+  experiments:
+    - name: generic-pod-delete
+      spec:
+        components:
+          env:
+            # How many pods to delete
+            - name: TOTAL_CHAOS_DURATION
+              value: "30"
+            - name: CHAOS_INTERVAL
+              value: "10"
+            - name: FORCE
+              value: "false"

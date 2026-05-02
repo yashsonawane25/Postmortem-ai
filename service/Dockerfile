@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY main.py .
+COPY auth.py .
 COPY core/ ./core/
 
 # Non-root user

@@ -1,0 +1,7 @@
+apiKey: ""
+backendUrl: "http://postmortem-ai-service.default.svc.cluster.local:8000"
+
+image:
+  repository: sre-agent
+  tag: latest
+  pullPolicy: IfNotPresent

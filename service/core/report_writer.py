@@ -71,6 +71,36 @@ def format_report(report: IncidentReport) -> str:
         sep,
         textwrap.fill(a.timeline, width=70, initial_indent="  ", subsequent_indent="  "),
         "",
+    ]
+    
+    if a.weakness_explanation and a.weakness_explanation != "No explanation provided.":
+        lines += [
+            sep,
+            "  SYSTEM WEAKNESS",
+            sep,
+            textwrap.fill(a.weakness_explanation, width=70, initial_indent="  ", subsequent_indent="  "),
+            "",
+        ]
+        
+    if a.resilience_improvement and a.resilience_improvement != "No improvement suggested.":
+        lines += [
+            sep,
+            "  RESILIENCE IMPROVEMENT",
+            sep,
+            textwrap.fill(a.resilience_improvement, width=70, initial_indent="  ", subsequent_indent="  "),
+            "",
+        ]
+        
+    if a.monitoring_improvement and a.monitoring_improvement != "No improvement suggested.":
+        lines += [
+            sep,
+            "  MONITORING IMPROVEMENT",
+            sep,
+            textwrap.fill(a.monitoring_improvement, width=70, initial_indent="  ", subsequent_indent="  "),
+            "",
+        ]
+
+    lines += [
         sep,
         "  RECOMMENDED FIX",
         sep,
@@ -100,12 +130,13 @@ def format_report(report: IncidentReport) -> str:
     return "\n".join(lines)
 
 
-def save_report(analysis: IncidentAnalysis, ctx: ObservabilityContext) -> tuple[IncidentReport, Path]:
+def save_report(analysis: IncidentAnalysis, ctx: ObservabilityContext, tenant_id: str) -> tuple[IncidentReport, Path]:
     """
     Build an IncidentReport, format it, and write it to disk.
     Returns (report, file_path).
     """
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    tenant_dir = REPORTS_DIR / tenant_id
+    tenant_dir.mkdir(parents=True, exist_ok=True)
 
     report = IncidentReport(
         report_id=analysis.incident_id,
@@ -121,12 +152,12 @@ def save_report(analysis: IncidentAnalysis, ctx: ObservabilityContext) -> tuple[
     )
 
     # ── Human-readable text report ──
-    text_path = REPORTS_DIR / f"{analysis.incident_id}.txt"
+    text_path = tenant_dir / f"{analysis.incident_id}.txt"
     text_path.write_text(format_report(report), encoding="utf-8")
     logger.info("Saved text report → %s", text_path)
 
     # ── Machine-readable JSON report ──
-    json_path = REPORTS_DIR / f"{analysis.incident_id}.json"
+    json_path = tenant_dir / f"{analysis.incident_id}.json"
     json_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
     logger.info("Saved JSON report → %s", json_path)
 

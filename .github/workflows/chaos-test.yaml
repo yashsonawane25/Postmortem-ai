@@ -1,0 +1,49 @@
+name: ChaosGuard Automated Testing
+
+on:
+  schedule:
+    # Run daily at midnight
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      experiment:
+        description: 'Experiment to run'
+        required: true
+        default: 'pod-delete-experiment.yaml'
+
+jobs:
+  run-chaos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Since this requires a cluster, you'd typically connect to your staging k8s or spin up kind
+      - name: Setup Kubernetes (Kind)
+        uses: helm/kind-action@v1.4.0
+        with:
+          cluster_name: postmortem-ai-cluster
+
+      # In a real pipeline, you would deploy your app and Prometheus first
+      # Here we assume the cluster is running and Litmus is installed.
+
+      - name: Deploy Chaos Experiment
+        run: |
+          echo "Applying chaos experiment..."
+          # Select experiment based on manual input or default for cron
+          EXPERIMENT_FILE=${{ github.event.inputs.experiment || 'pod-delete-experiment.yaml' }}
+          kubectl apply -f chaos/${EXPERIMENT_FILE}
+          
+      - name: Wait for Chaos Experiment to Complete
+        run: |
+          echo "Waiting for chaos engine to complete..."
+          # Just an example sleep; in real-world you would check the ChaosEngine status
+          sleep 60
+          
+      - name: Run SLO & Resilience Checker
+        env:
+          PROMETHEUS_URL: "http://localhost:9090" # Adjust as per your cluster setup
+          FASTAPI_URL: "http://localhost:8000"
+        run: |
+          pip install requests
+          python monitoring/slo_checker.py
